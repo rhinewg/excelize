@@ -15526,6 +15526,28 @@ func (fn *formulaFuncs) TRANSPOSE(argsList *list.List) formulaArg {
 	return newMatrixFormulaArg(mtx)
 }
 
+// coerceLookupComparableArgs normalizes number-text pairs for lookup compares.
+// It keeps existing behavior for other types and only aligns numeric strings
+// with numbers to avoid false #N/A in VLOOKUP/HLOOKUP binary/linear search.
+func coerceLookupComparableArgs(lhs, rhs formulaArg) (formulaArg, formulaArg) {
+	if lhs.Type == rhs.Type {
+		return lhs, rhs
+	}
+	if lhs.Type == ArgString && rhs.Type == ArgNumber {
+		if n := lhs.ToNumber(); n.Type == ArgNumber {
+			return n, rhs
+		}
+		return lhs, rhs
+	}
+	if lhs.Type == ArgNumber && rhs.Type == ArgString {
+		if n := rhs.ToNumber(); n.Type == ArgNumber {
+			return lhs, n
+		}
+		return lhs, rhs
+	}
+	return lhs, rhs
+}
+
 // lookupLinearSearch sequentially checks each look value of the lookup array until
 // a match is found or the whole list has been searched.
 func lookupLinearSearch(vertical bool, lookupValue, lookupArray, matchMode, searchMode formulaArg) (int, bool) {
@@ -15540,7 +15562,8 @@ func lookupLinearSearch(vertical bool, lookupValue, lookupArray, matchMode, sear
 		} else if lookupArray.Type == ArgString {
 			lhs = newStringFormulaArg(cell.Value())
 		}
-		if compareFormulaArg(lhs, lookupValue, matchMode, false) == criteriaEq {
+		compareLHS, compareRHS := coerceLookupComparableArgs(lhs, lookupValue)
+		if compareFormulaArg(compareLHS, compareRHS, matchMode, false) == criteriaEq {
 			matchIdx = i
 			wasExact = true
 			if searchMode.Number == searchModeLinear {
@@ -15628,7 +15651,8 @@ func lookupBinarySearch(vertical bool, lookupValue, lookupArray, matchMode, sear
 		} else if lookupValue.Type == ArgString {
 			lhs = newStringFormulaArg(cell.Value())
 		}
-		result := compareFormulaArg(lhs, lookupValue, matchMode, false)
+		compareLHS, compareRHS := coerceLookupComparableArgs(lhs, lookupValue)
+		result := compareFormulaArg(compareLHS, compareRHS, matchMode, false)
 		if result == criteriaEq {
 			matchIdx, wasExact = mid, true
 			if searchMode.Number == searchModeDescBinary {

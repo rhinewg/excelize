@@ -5026,10 +5026,21 @@ func TestCalcVLOOKUP(t *testing.T) {
 		{nil, nil, nil, nil, nil, nil},
 	}
 	f := prepareCalcData(cellData)
+	// Mixed-type lookup table: first column stored as text numbers.
+	assert.NoError(t, f.SetCellValue("Sheet1", "G3", "100"))
+	assert.NoError(t, f.SetCellValue("Sheet1", "H3", "A100"))
+	assert.NoError(t, f.SetCellValue("Sheet1", "G4", "200"))
+	assert.NoError(t, f.SetCellValue("Sheet1", "H4", "A200"))
+	assert.NoError(t, f.SetCellValue("Sheet1", "G5", "300"))
+	assert.NoError(t, f.SetCellValue("Sheet1", "H5", "A300"))
 	calc := map[string]string{
 		"VLOOKUP(F3,B3:C8,2)":       "b",
 		"VLOOKUP(F3,B3:C8,2,TRUE)":  "b",
 		"VLOOKUP(F3,B3:C8,2,FALSE)": "B",
+		// lookup_value is text-number, table first column is number
+		"VLOOKUP(\"85\",B3:C8,2,FALSE)": "B",
+		// lookup_value is number, table first column is text-number
+		"VLOOKUP(200,G3:H5,2,FALSE)": "A200",
 	}
 	for formula, expected := range calc {
 		assert.NoError(t, f.SetCellFormula("Sheet1", "F4", formula))
@@ -5469,12 +5480,21 @@ func TestCalcHLOOKUP(t *testing.T) {
 		{"E"},
 	}
 	f := prepareCalcData(cellData)
+	// Mixed-type lookup table: first row stored as text numbers.
+	assert.NoError(t, f.SetCellValue("Sheet1", "H2", "100"))
+	assert.NoError(t, f.SetCellValue("Sheet1", "I2", "200"))
+	assert.NoError(t, f.SetCellValue("Sheet1", "H3", "M100"))
+	assert.NoError(t, f.SetCellValue("Sheet1", "I3", "M200"))
 	formulaList := map[string]string{
 		"HLOOKUP(A10,A2:F6,5,FALSE)":  "0.61",
 		"HLOOKUP(D3,D3:D3,1,TRUE)":    "0.67",
 		"HLOOKUP(F3,D3:F3,1,TRUE)":    "0.8",
 		"HLOOKUP(A5,A2:F2,1,TRUE)":    "F",
 		"HLOOKUP(\"D\",A2:F2,1,TRUE)": "C",
+		// lookup_value is text-number, table first row is number
+		"HLOOKUP(\"0.9\",B3:F4,2,FALSE)": "0.71",
+		// lookup_value is number, table first row is text-number
+		"HLOOKUP(200,H2:I3,2,FALSE)": "M200",
 	}
 	for formula, expected := range formulaList {
 		assert.NoError(t, f.SetCellFormula("Sheet1", "B10", formula))
